@@ -1,15 +1,14 @@
 using Amazon.Runtime;
-using AWS.Helper.Core;
 
-namespace AWS.Helper.Credentials.AssumeRole;
+namespace AWS.Helper.Core;
 
-internal sealed class CredentialStoreService
+public sealed class StoredCredentialsProvider : IStoredCredentialsProvider
 {
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly object _lock = new object();
     private List<StoredCredentials> _storedCredentials = new List<StoredCredentials>();
 
-    public CredentialStoreService(
+    public StoredCredentialsProvider(
         IDateTimeProvider dateTimeProvider)
     {
         _dateTimeProvider = dateTimeProvider;
@@ -18,23 +17,20 @@ internal sealed class CredentialStoreService
     private bool IsCredentialsExpired(StoredCredentials credentials) =>
         credentials is null || credentials.IsExpired(_dateTimeProvider.UtcNow);
 
-    private Func<StoredCredentials, GetStoredCredentialsInput, bool> MatchInput = (cred, input) =>
-            cred.RoleArn == input.RoleArn
-            && cred.SessionName == input.SessionName
-            && cred.AccessKeyId == input.AccessKeyId;
+    private Func<StoredCredentials, GetStoredCredentialsInput, bool> CredentialsFilter = (cred, input) =>
+            cred.CredentialsId == input.CredentialsId && cred.AccessKeyId == input.AccessKeyId;
 
     private StoredCredentials GetCredentialsFromStore(GetStoredCredentialsInput input) =>
-        _storedCredentials.FirstOrDefault(cred => MatchInput(cred, input))!;
+        _storedCredentials.FirstOrDefault(cred => CredentialsFilter(cred, input))!;
 
     private void StoreCredentials(GetStoredCredentialsInput input, AWSCredentials credentials)
     {
-        _storedCredentials.RemoveAll(cred => MatchInput(cred, input));
+        _storedCredentials.RemoveAll(cred => CredentialsFilter(cred, input));
 
         _storedCredentials.Add(
-            new StoredCredentials(input.RoleArn,
+            new StoredCredentials(input.CredentialsId,
                                   input.AccessKeyId,
-                                  input.SessionName,
-                                  input.SessionPeriodInSeconds,
+                                  input.TimeoutInSeconds,
                                   _dateTimeProvider.UtcNow,
                                   credentials));
     }

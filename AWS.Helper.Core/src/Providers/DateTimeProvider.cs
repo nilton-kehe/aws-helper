@@ -1,6 +1,6 @@
 namespace AWS.Helper.Core;
 
-public class DateTimeProvider : IDateTimeProvider
+public sealed class DateTimeProvider : IDateTimeProvider
 {
     public DateTimeOffset Now => DateTimeOffset.Now;
 
